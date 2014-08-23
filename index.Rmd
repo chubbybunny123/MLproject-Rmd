@@ -1,0 +1,208 @@
+---
+title: "Classifying Weight Lifting Form from Wearable Sensors"
+subtitle: "Coursera - Practical Machine Learning Course Project"
+output: html_document
+---
+
+### Synopsis
+A random forest model created to classify weight lifting forms from wearable sensor 
+input. 
+
+### Data details
+
+Here, we examine how well you can predict the version of weigh lifting that the 
+test subject is engaging in, based on various sensors that the subject is wearing 
+and sensors on the exercise equipment. The data comes from 
+[Groupware@LES](http://groupware.les.inf.puc-rio.br/har) 
+and was used in the following research article:
+
+Velloso, E.; Bulling, A.; Gellersen, H.; Ugulino, W.; Fuks, H. Qualitative 
+Activity Recognition of Weight Lifting Exercises. Proceedings of 4th 
+International Conference in Cooperation with SIGCHI (Augmented Human '13) . 
+Stuttgart, Germany: ACM SIGCHI, 2013.
+
+These are the possible outcomes or versions of weight lifting we are trying to 
+predict:
+ <center>
+| classe  | which version of weight lifting        | 
+|---------|:---------------------------------------|
+| A       | exactly according to the specification |   
+| B       | throwing the elbows to the front       |  
+| C       | lifting the dumbbell only halfway      |   
+| D       | lowering the dumbbell only halfway     | 
+| E       | throwing the hips to the front         |
+</center>
+
+### Data Processing
+Initial loading of a few lines from the training data showed an abundance of 
+NA, !DIV/0, and empty string values. So when loading the data, R is explicitly 
+instructed to treat all three as NA. Note that the string values were separated 
+by \" , so those were removed. 
+
+```{r setup, cache=TRUE, results='hide'}
+library(caret)
+library(randomForest)
+library(tree)
+library(rpart.plot)
+set.seed(1290)
+
+train_url <- 'https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv'
+test_url <- 'https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv'  
+
+# download the data and document when it was done
+## conditional create data folder
+if(!file.exists("data")) {
+  dir.create("data")
+  
+  download.file(train_url, destfile = "./data/pml-training.csv", method='wget')
+  fileConn <- file("./data/pml-training_dateDL.txt")
+  dateDL <- date()
+  writeLines(dateDL, fileConn)
+  close(fileConn)    
+
+  download.file(test_url, destfile = "./data/pml-testing.csv", method = 'wget') 
+  fileConn <- file("./data/pml-testing_dateDL.txt")
+  dateDL <- date()
+  writeLines(dateDL, fileConn)
+  close(fileConn)
+}
+
+training <- read.csv("./data/pml-training.csv", header = TRUE
+                     , na.strings = c("NA", "#DIV/0!", "")   
+                     , quote ="\"")
+testing <- read.csv("./data/pml-testing.csv", header = TRUE
+                     , na.strings = c("NA", "#DIV/0!", "")  
+                     , quote ="\"")
+```
+
+Then we subdivide the training set so we can make an estimate of the out-of-sample 
+error.
+
+```{r makeTraining, cache=TRUE}
+inTrain <- createDataPartition(y=training$classe, p=0.7, list=FALSE)
+trainsub <- training[inTrain,]
+testsub <- training[-inTrain, ]
+```
+
+Earlier we noted that there were a number of NA values. How many of the 
+variables are missing the majority of their values (are NA)?  
+Using a relatively high bar of 90% NA's, it turns out there are a substantial 
+number of variables that are mostly empty. 
+
+```{r exploreNA, cache=TRUE}
+nafunc <- function(x) sum(is.na(x))
+sum_nas <- sapply(trainsub, nafunc)  # No. of rows in each col with NA
+```
+
+Those variables, being empty, have very little information, so they are removed 
+from the analysis.
+
+```{r removeNA, cache=TRUE}
+trainRows <- dim(trainsub)[1]
+few_nas <- !(sum_nas >= 0.9*trainRows)   # if there aren't too many NAs, TRUE
+dim(trainsub)[2]-sum(few_nas) # removed this many variables
+sum(few_nas) # kept this many variables
+```
+
+Consider as well the information given by the column names.  By visual 
+inspection, some of these, such as the subject's name, should not have any 
+significance on the outcome. So those are also removed
+
+```{r removeOthers, cache=TRUE}
+names(trainsub)[1:7]
+maybe_useful <- c(rep(TRUE, times=length(trainsub)))
+maybe_useful[c(1,2,3,4,5,6,7)] <- FALSE 
+
+keepvar_mask <- maybe_useful & few_nas
+usefulVars <- sum(keepvar_mask)
+
+trainsub <- trainsub[ ,keepvar_mask]
+testsub <- testsub[ ,keepvar_mask]
+```
+
+This leaves us with `r usefulVars` columns in our data (including one for the 
+outcome).
+
+### Model Construction
+To classify the exercise type, let's consider grouping the data using a 
+collection of classification trees, built using the
+randomForest function. Note that the randomForest algorithm uses cross-validation 
+to build the forest, as detailed in 
+[Leo Breiman's site](http://www.stat.berkeley.edu/~breiman/RandomForests/cc_home.htm#workings).  
+When 
+individual trees are constructed, some cases are left of training and are run 
+down that tree to calculated an out-of-bag error estimate.  Using this measure, 
+we can optimize *mtry*, the number of predictors sampled for spliting at each 
+node. The caret [*train* function](http://topepo.github.io/caret/training.html) 
+will do this automatically using the "one standard error rule", but since the 
+caret train function can be very memory-intensive and subsequently very slow, 
+let us optimize for *mtry* separately and then call *randomForest*.
+
+```{r rftune, cache=TRUE, results='hide'}
+rf_tune <- tuneRF(trainsub[,1:(length(trainsub)-1)], trainsub$classe
+                 , doBest=FALSE
+                 , trace=FALSE
+                 )
+mtry_tuned <- which.min(rf_tune)
+```
+The out-of-bag error estimate is minimized at `r mtry_tuned` variables, so that 
+is used to create the random forest model.
+
+```{r rf6, cache=TRUE}
+rf_fit6 <- randomForest(classe ~ . , data=trainsub
+                        , mtry=mtry_tuned
+                        , ntree=501)
+rf_fit6
+```
+
+### Results
+From our random forest model, we can view the importance of the 
+variables. Here's a list of the top 10 most imporant variables
+
+```{r varimp, cache=TRUE}
+vars <- rownames(importance(rf_fit6))
+impt_vals <- importance(rf_fit6)[1:length(importance(rf_fit6))]
+impts <- data.frame('var_name'=vars, 'impt_val'=impt_vals)
+impts <- impts[with(impts, order(-impt_val)), ]
+head(impts, 10)
+```
+
+One out-of-sample estimate is the out-of-bag estimate given in the 
+random forest model (roughly, the classification error on the cases that were 
+not used to construct a particular tree).  To get a better idea estimate, we 
+apply the model to the 
+subset of the training data that was held back and compare the predicted classes 
+to the actual classes.
+
+```{r oos, cache=TRUE}
+pred <- predict(rf_fit6,newdata=testsub)
+table(pred, testsub$classe)
+oos_err <- sum(!(pred==testsub$classe))/dim(testsub)[1] 
+# estimate of out of sample error
+oos_err
+```
+
+So a good estimate of the out-of-sample error is `r oos_err`, or 
+`r oos_err*100`%. 
+
+Now the model is applied to the test cases given, being careful to apply the 
+preprocessing (in this case, discarding the same variables) as in the training 
+set.
+
+```{r test, cache=TRUE}
+testing <- testing[ ,keepvar_mask]
+pred2 <- predict(rf_fit6,newdata=testing)
+
+### submission details
+pml_write_files <- function(x){
+    n = length(x)
+    for(i in 1:n){
+        filename = paste0("results/problem_id_",i,".txt")
+        write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+    }
+}
+
+pml_write_files(pred2)
+```
+
+
