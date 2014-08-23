@@ -59,7 +59,7 @@ if (window.hljs && document.readyState && document.readyState === "complete") {
 
 <div id="synopsis" class="section level3">
 <h3>Synopsis</h3>
-<p>A random forest model created to classify weight lifting forms from wearable sensor input.</p>
+<p>A random forest model is created to classify weight lifting forms from wearable sensor input.</p>
 </div>
 <div id="data-details" class="section level3">
 <h3>Data details</h3>
@@ -102,7 +102,7 @@ These are the possible outcomes or versions of weight lifting we are trying to p
 </div>
 <div id="data-processing" class="section level3">
 <h3>Data Processing</h3>
-<p>Initial loading of a few lines from the training data showed an abundance of NA, !DIV/0, and empty string values. So when loading the data, R is explicitly instructed to treat all three as NA. Note that the string values were separated by &quot; , so those were removed.</p>
+<p>Initial loading of a few lines from the training data showed an abundance of NA, !DIV/0, and empty string values. So when loading the data, R is explicitly instructed to treat all three as NA. Note that the string values were separated by \&quot; , so those were removed.</p>
 <pre class="r"><code>library(caret)
 library(randomForest)
 library(tree)
@@ -140,7 +140,7 @@ testing &lt;- read.csv(&quot;./data/pml-testing.csv&quot;, header = TRUE
 <pre class="r"><code>inTrain &lt;- createDataPartition(y=training$classe, p=0.7, list=FALSE)
 trainsub &lt;- training[inTrain,]
 testsub &lt;- training[-inTrain, ]</code></pre>
-<p>Earlier we noted that there were a number of NA values. How many of the variables are missing the majority of their values (are NA)?<br />Using a relatively high bar of 90% NA’s, it turns out there are a substantial number of variables that are mostly empty.</p>
+<p>Earlier we noted that there were a number of NA values. How many of the variables are missing the majority of their values (are NA)? Using a relatively high bar of 90% NA’s, it turns out there are a substantial number of variables that are mostly empty.</p>
 <pre class="r"><code>nafunc &lt;- function(x) sum(is.na(x))
 sum_nas &lt;- sapply(trainsub, nafunc)  # No. of rows in each col with NA</code></pre>
 <p>Those variables, being empty, have very little information, so they are removed from the analysis.</p>
@@ -233,7 +233,7 @@ oos_err</code></pre>
 <pre class="r"><code>testing &lt;- testing[ ,keepvar_mask]
 pred2 &lt;- predict(rf_fit6,newdata=testing)
 
-### submission details
+### submission file script from course website 
 pml_write_files &lt;- function(x){
     n = length(x)
     for(i in 1:n){

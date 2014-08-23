@@ -5,7 +5,7 @@ output: html_document
 ---
 
 ### Synopsis
-A random forest model created to classify weight lifting forms from wearable sensor 
+A random forest model is created to classify weight lifting forms from wearable sensor 
 input. 
 
 ### Data details
@@ -37,7 +37,7 @@ predict:
 Initial loading of a few lines from the training data showed an abundance of 
 NA, !DIV/0, and empty string values. So when loading the data, R is explicitly 
 instructed to treat all three as NA. Note that the string values were separated 
-by \" , so those were removed. 
+by \\" , so those were removed. 
 
 ```{r setup, cache=TRUE, results='hide'}
 library(caret)
@@ -85,8 +85,8 @@ testsub <- training[-inTrain, ]
 ```
 
 Earlier we noted that there were a number of NA values. How many of the 
-variables are missing the majority of their values (are NA)?  
-Using a relatively high bar of 90% NA's, it turns out there are a substantial 
+variables are missing the majority of their values (are NA)? Using a relatively 
+high bar of 90% NA's, it turns out there are a substantial 
 number of variables that are mostly empty. 
 
 ```{r exploreNA, cache=TRUE}
@@ -193,7 +193,7 @@ set.
 testing <- testing[ ,keepvar_mask]
 pred2 <- predict(rf_fit6,newdata=testing)
 
-### submission details
+### submission file script from course website 
 pml_write_files <- function(x){
     n = length(x)
     for(i in 1:n){
